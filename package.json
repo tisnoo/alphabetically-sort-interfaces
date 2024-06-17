@@ -14,8 +14,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "alphabetically-sort-interfaces.helloWorld",
-        "title": "Hello World"
+        "command": "alphabetically-sort-interfaces.sortFile",
+        "title": "Sort file alphabetically"
       }
     ]
   },
