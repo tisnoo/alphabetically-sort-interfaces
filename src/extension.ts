@@ -1,25 +1,88 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { sortInterfaceKeys } from './sortKeys';
+import * as ts from 'typescript';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+    let disposable = vscode.commands.registerCommand('alphabetically-sort-interfaces.sortFile', () => {
+        const editor = vscode.window.activeTextEditor;
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "alphabetically-sort-interfaces" is now active!');
+        if (!editor) {
+            return;
+        }
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('alphabetically-sort-interfaces.sortFile', () => {
-		sortInterfaceKeys();
-	});
+        const document = editor.document;
+        const text = document.getText();
 
-	context.subscriptions.push(disposable);
+        const sourceFile = ts.createSourceFile('tempFile.ts', text, ts.ScriptTarget.Latest, true);
+
+        const sortedText = sortInterfacesAndTypes(sourceFile);
+
+        editor.edit(editBuilder => {
+            const fullRange = new vscode.Range(
+                document.positionAt(0),
+                document.positionAt(text.length)
+            );
+            editBuilder.replace(fullRange, sortedText);
+        });
+    });
+
+    context.subscriptions.push(disposable);
 }
 
-// This method is called when your extension is deactivated
+function sortInterfacesAndTypes(sourceFile: ts.SourceFile): string {
+    const printer = ts.createPrinter();
+    const sortedNodes: ts.Node[] = [];
+
+    ts.forEachChild(sourceFile, node => {
+        if (ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) {
+            sortedNodes.push(sortKeys(node));
+        } else {
+            sortedNodes.push(node);
+        }
+    });
+
+    return sortedNodes.map(node => printer.printNode(ts.EmitHint.Unspecified, node, sourceFile)).join('\n');
+}
+
+function sortKeys(node: ts.Node): ts.Node {
+    if (ts.isInterfaceDeclaration(node)) {
+        return ts.factory.updateInterfaceDeclaration(
+            node,
+            node.modifiers,
+            node.name,
+            node.typeParameters,
+            node.heritageClauses,
+            sortMembers(node.members)
+        );
+    } else if (ts.isTypeAliasDeclaration(node)) {
+        if (ts.isTypeLiteralNode(node.type)) {
+            return ts.factory.updateTypeAliasDeclaration(
+                node,
+                node.modifiers,
+                node.name,
+                node.typeParameters,
+                sortTypeLiteral(node.type)
+            );
+        }
+    }
+    return node;
+}
+
+function sortMembers(members: ts.NodeArray<ts.TypeElement>): ts.NodeArray<ts.TypeElement> {
+    return ts.factory.createNodeArray([...members].sort((a, b) => {
+        if (a.name && b.name) {
+            const aName = (a.name as ts.Identifier).text;
+            const bName = (b.name as ts.Identifier).text;
+            return aName.localeCompare(bName);
+        }
+        return 0;
+    }));
+}
+
+function sortTypeLiteral(typeLiteral: ts.TypeLiteralNode): ts.TypeLiteralNode {
+    return ts.factory.updateTypeLiteralNode(
+        typeLiteral,
+        sortMembers(typeLiteral.members)
+    );
+}
+
 export function deactivate() {}
