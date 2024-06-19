@@ -14,7 +14,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         const sourceFile = ts.createSourceFile('tempFile.ts', text, ts.ScriptTarget.Latest, true);
 
-        const sortedText = sortInterfacesAndTypes(sourceFile);
+        const sortedText = sortInterfacesAndTypes(sourceFile, text);
 
         editor.edit(editBuilder => {
             const fullRange = new vscode.Range(
@@ -28,9 +28,11 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(disposable);
 }
 
-function sortInterfacesAndTypes(sourceFile: ts.SourceFile): string {
+function sortInterfacesAndTypes(sourceFile: ts.SourceFile, text: string): string {
     const printer = ts.createPrinter();
     const sortedNodes: ts.Node[] = [];
+		let lastEnd = 0;
+		let newText = '';
 
     ts.forEachChild(sourceFile, node => {
         if (ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) {
@@ -38,9 +40,13 @@ function sortInterfacesAndTypes(sourceFile: ts.SourceFile): string {
         } else {
             sortedNodes.push(node);
         }
+
+				newText += text.substring(lastEnd, node.getStart());
+				newText += printer.printNode(ts.EmitHint.Unspecified, node, sourceFile);
+				lastEnd  = node.getEnd();
     });
 
-    return sortedNodes.map(node => printer.printNode(ts.EmitHint.Unspecified, node, sourceFile)).join('\n');
+    return newText;
 }
 
 function sortKeys(node: ts.Node): ts.Node {
