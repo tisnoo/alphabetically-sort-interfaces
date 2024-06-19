@@ -68,13 +68,22 @@ function sortKeys(node: ts.Node): ts.Node {
 }
 
 function sortMembers(members: ts.NodeArray<ts.TypeElement>): ts.NodeArray<ts.TypeElement> {
-    return ts.factory.createNodeArray([...members].sort((a, b) => {
-        if (a.name && b.name) {
-            const aName = (a.name as ts.Identifier).text;
-            const bName = (b.name as ts.Identifier).text;
-            return aName.localeCompare(bName);
+    return ts.factory.createNodeArray([...members].map(member => {
+        if (ts.isPropertySignature(member) && member.type && ts.isTypeLiteralNode(member.type)) {
+            const sortedTypeLiteral = sortTypeLiteral(member.type);
+            return ts.factory.updatePropertySignature(
+                member,
+                member.modifiers,
+                member.name,
+                member.questionToken,
+                sortedTypeLiteral
+            );
         }
-        return 0;
+        return member;
+    }).sort((a, b) => {
+        const aName = (a.name as ts.Identifier).text;
+        const bName = (b.name as ts.Identifier).text;
+        return aName.localeCompare(bName);
     }));
 }
 
