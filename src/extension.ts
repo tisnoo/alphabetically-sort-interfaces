@@ -35,14 +35,16 @@ function sortInterfacesAndTypes(sourceFile: ts.SourceFile, text: string): string
 		let newText = '';
 
     ts.forEachChild(sourceFile, node => {
+			let sortedNode = node;
+
         if (ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) {
-            sortedNodes.push(sortKeys(node));
-        } else {
-            sortedNodes.push(node);
+            sortedNode = sortKeys(node);
         }
 
+				sortedNodes.push(sortedNode);
+
 				newText += text.substring(lastEnd, node.getStart());
-				newText += printer.printNode(ts.EmitHint.Unspecified, node, sourceFile);
+				newText += printer.printNode(ts.EmitHint.Unspecified, sortedNode, sourceFile);
 				lastEnd  = node.getEnd();
     });
 
